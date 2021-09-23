@@ -1,8 +1,10 @@
 #  coding: utf-8 
 import socketserver
 from urllib import parse
+from pathlib import Path
 import os
-
+from email.utils import formatdate
+import mimetypes
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,6 +32,11 @@ import os
 
 #HEADER = 64
 FORMAT = 'utf-8'
+
+CWD = str(Path.cwd()) + '/www'
+mime_dict = {'.css':'text/css', '.html':'text/html'}
+http_code_dict = {200:"OK", 404:"File Not Found", 405:"Method Not Allowed"}
+#print(CWD)
 class MyWebServer(socketserver.BaseRequestHandler):
     
 
@@ -41,9 +48,15 @@ class MyWebServer(socketserver.BaseRequestHandler):
             print("Printing URL")
             print(url)
             print(parse.urlparse(url))
+            print("THE MIME TYPE OF THE URL IS: {}".format(mimetypes.guess_type(url)))
+            mime_type = mimetypes.guess_type(url)
             test = self.do_GET(url)
-            self.send_message(200, msg=test)
-            return
+            if test != None:
+                self.send_message(200, mime_type,msg=test)
+                return
+            else:
+                self.send_message(404)
+
         else:
             print("send error code")
             self.do_GET(405)
@@ -52,10 +65,13 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
         return
 
-    def send_message(self, code, msg=''):
+    def send_message(self, code, type='', msg=''):
+        print(self.send_http_headers(code, type, msg))
+        self.request.sendall(bytearray(self.send_http_headers(code, type, msg), FORMAT))
+        '''
         if code == 405:
             data = "HTTP/1.1 405 Method Not Allowed\r\n"
-            data += "Connection: close\r\n"
+            data += "Connection: close\r\n\r\n"
             self.request.sendall(bytearray(data, FORMAT))
         elif code == 200:
             data = "HTTP/1.1 200 OK\r\n"
@@ -64,9 +80,29 @@ class MyWebServer(socketserver.BaseRequestHandler):
             data += str(msg)
             
             self.request.sendall(bytearray(data, FORMAT))
-
+        
+        elif code == 404:
+            data = 'HTTP/1.1 404 File Not Found'
+            data += "Connection: close \r\n\r\n"
+            self.request.sendall(bytearray(data, FORMAT))
+        '''
 
         return
+
+    def send_http_headers(self, code, type, msg):
+        data = "HTTP/1.1 {} {}\r\n".format(code, http_code_dict[code])
+        data += "Date: {}\r\n".format(formatdate(timeval=None, localtime=False, usegmt=True))
+        if code >= 200 and code < 300:
+            data += 'Content-Type: {}\r\n'.format(type[0])
+            data += 'Connection: close\r\n\r\n'
+            data += str(msg)
+            return data
+        elif code >=400 and code < 500:
+            data += 'Connection: close\r\n\r\n'
+            return data
+        else:
+            return
+        
 
     def do_GET(self, request):
         if request == '/':
@@ -81,6 +117,23 @@ class MyWebServer(socketserver.BaseRequestHandler):
             print(data)
             return data
 
+        else:
+            path = CWD + request
+            print("PRINTING REQUEST: ", request)
+            #checks if the path is valid
+            if "/../" not in request:           # Lazy fix
+            #TODO: PROPERLY IMPLEMENT CHECKING IF THE REQUEST PATH IS IN /WWW/ DIR
+            #if Path(CWD) in Path(path).parents:
+                if os.path.exists(path):
+                    #TODO: CHECK IF THE PAHT IS A DIR
+                    with open(CWD+request, 'r') as f:
+                        data = f.read()
+                    return data
+                else:
+                    return
+            else:
+                print("PATH CHECK ELSE STATEMENT")
+                return
         return
 
 
@@ -102,7 +155,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
-
+    #print(formatdate(timeval=None, localtime=False, usegmt=True))
     socketserver.TCPServer.allow_reuse_address = True
     # Create the server, binding to localhost on port 8080
     server = socketserver.TCPServer((HOST, PORT), MyWebServer)
@@ -110,4 +163,3 @@ if __name__ == "__main__":
     # Activate the server; this will keep running until you
     # interrupt the program with Ctrl-C
     server.serve_forever()
-    server.shutdown()
