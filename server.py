@@ -35,7 +35,7 @@ FORMAT = 'utf-8'
 
 CWD = str(Path.cwd()) + '/www'
 mime_dict = {'.css':'text/css', '.html':'text/html'}
-http_code_dict = {200:"OK", 303:"See Other", 404:"Not Found", 405:"Method Not Allowed"}
+http_code_dict = {200:"OK", 301:"Moved Permanently", 404:"Not Found", 405:"Method Not Allowed"}
 #print(CWD)
 class MyWebServer(socketserver.BaseRequestHandler):
     
@@ -96,7 +96,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
                     if path.endswith('/'):
                         return 200, path + 'index.html'
                     else:
-                        return 303, url + '/'
+                        return 301, url + '/'
                 else:
                     return 200, path
             else:
@@ -114,7 +114,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
             data += 'Connection: close\r\n\r\n'
             data += str(message_body)
             return data
-        elif code == 303:
+        elif code == 301:
             data += "Location: {}\r\n".format(url)
             data += "Connection: close\r\n\r\n"
             print(data)
