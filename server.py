@@ -109,8 +109,11 @@ class MyWebServer(socketserver.BaseRequestHandler):
             type = mimetypes.guess_type(url)
         if code >= 200 and code < 300:
             data += 'Content-Type: {}\r\n'.format(type[0])
-            message_body = self.get_data(url)
-            data += 'Content-Length: {}\r\n'.format(len(message_body.encode(FORMAT)))
+            message_body = self.get_data(url, type[0])
+            if 'html' in type[0] or 'css' in type[0]:
+                data += 'Content-Length: {}\r\n'.format(len(message_body.encode(FORMAT)))
+            else:
+                data += 'Content-Length: {}\r\n'.format(len(message_body))
             data += 'Connection: close\r\n\r\n'
             data += str(message_body)
             return data
@@ -126,9 +129,15 @@ class MyWebServer(socketserver.BaseRequestHandler):
         else:
             return
         
-    def get_data(self, path):
-        with open(path, 'r') as f:
-            data = f.read()
+    def get_data(self, path, type):
+        if 'html' in type or 'css' in type:
+            with open(path, 'r') as f:
+                data = f.read()
+                f.close()
+        else:
+            with open(path, 'rb') as f:
+                data = f.read()
+                f.close()
         return data
 
     def handle(self):
